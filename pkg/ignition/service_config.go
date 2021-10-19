@@ -2,10 +2,10 @@ package ignition
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
 	ignition_config_types_32 "github.com/coreos/ignition/v2/config/v3_2/types"
+	"github.com/vincent-petithory/dataurl"
 	"k8s.io/utils/pointer"
 )
 
@@ -22,8 +22,11 @@ inspection_collectors = default,extra-hardware,logs
 inspection_dhcp_all_interfaces = True
 `
 	contents := fmt.Sprintf(template, b.ironicBaseURL, b.ironicBaseURL, ironicInspectorVlanInterfaces)
-	source := "data:," + url.QueryEscape(contents)
+	du := dataurl.New([]byte(contents), "text/plain")
+	du.Encoding = dataurl.EncodingASCII
+	source := du.String()
 
+	fmt.Printf("'%s'\n", source)
 	return ignition_config_types_32.File{
 		Node:          ignition_config_types_32.Node{Path: "/etc/ironic-python-agent.conf"},
 		FileEmbedded1: ignition_config_types_32.FileEmbedded1{Contents: ignition_config_types_32.Resource{Source: &source}},
@@ -47,9 +50,8 @@ ExecStart=/bin/podman run --privileged --network host --mount type=bind,src=/etc
 [Install]
 WantedBy=multi-user.target
 `
-	unit := fmt.Sprintf(unitTemplate, b.ironicAgentImage, flags, b.ironicAgentImage)
+	contents := fmt.Sprintf(unitTemplate, b.ironicAgentImage, flags, b.ironicAgentImage)
 
-	contents := "data:;base64," + strings.ReplaceAll(strings.TrimSpace(unit), "\n", "\\n")
 	return ignition_config_types_32.Unit{
 		Name:     "ironic-agent.service",
 		Enabled:  pointer.BoolPtr(true),
